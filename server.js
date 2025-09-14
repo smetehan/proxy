@@ -1,36 +1,25 @@
-// proxy-server.js
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
+import express from "express";
+import axios from "axios";
+import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
-// Tüm CORS izinleri
 app.use(cors());
 
-// Basit GET proxy
 app.get("/proxy", async (req, res) => {
-  const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).send({ error: "URL parametresi eksik" });
-  }
+  const { target } = req.query;
+  if (!target) return res.status(400).send("target query missing");
 
   try {
-    const response = await axios.get(url, {
-      responseType: "arraybuffer", // Video veya M3U gibi binary içeriğe izin
+    const response = await axios.get(target, {
+      responseType: "stream", // büyük dosyalar için
     });
-
-    // İçeriğin tipini aynen döndür
-    res.set("Content-Type", response.headers["content-type"] || "application/octet-stream");
-    res.send(response.data);
-  } catch (error) {
-    console.error("Proxy Error:", error.message);
-    res.status(500).send({ error: "Proxy isteği başarısız" });
+    response.data.pipe(res);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Proxy fetch failed");
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Proxy server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
