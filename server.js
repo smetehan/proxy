@@ -1,36 +1,36 @@
+// proxy-server.js
 const express = require("express");
-const { createProxyMiddleware } = require("http-proxy-middleware");
+const axios = require("axios");
+const cors = require("cors");
 
 const app = express();
+const PORT = process.env.PORT || 4000;
 
-// Kanal listesi
-const channels = [
-  { id: "1", name: "TR: BEIN SPORTS 1 SD", url: "https://202670.tonybox1.eu:80/sevketme2838/561j2is2zy/84" },
-  { id: "2", name: "TR: BEIN SPORTS 2 HD", url: "http://202670.tonybox1.eu:80/sevketme2838/561j2is2zy/31408" },
-  { id: "3", name: "TR: BEIN SPORTS 3 SD", url: "http://202670.tonybox1.eu:80/sevketme2838/561j2is2zy/116676" },
-];
+// Tüm CORS izinleri
+app.use(cors());
 
-// Kanal listesini döndür
-app.get("/api/channels", (req, res) => {
-  res.json(channels.map(c => ({ id: c.id, name: c.name })));
-});
+// Basit GET proxy
+app.get("/proxy", async (req, res) => {
+  const { url } = req.query;
 
-// Kanal yayını proxy et
-app.use("/stream/:id", (req, res, next) => {
-  const channel = channels.find(c => c.id === req.params.id);
-  if (!channel) {
-    return res.status(404).send("Kanal bulunamadı");
+  if (!url) {
+    return res.status(400).send({ error: "URL parametresi eksik" });
   }
 
-  return createProxyMiddleware({
-    target: channel.url,
-    changeOrigin: true,
-    secure: false,
-  })(req, res, next);
+  try {
+    const response = await axios.get(url, {
+      responseType: "arraybuffer", // Video veya M3U gibi binary içeriğe izin
+    });
+
+    // İçeriğin tipini aynen döndür
+    res.set("Content-Type", response.headers["content-type"] || "application/octet-stream");
+    res.send(response.data);
+  } catch (error) {
+    console.error("Proxy Error:", error.message);
+    res.status(500).send({ error: "Proxy isteği başarısız" });
+  }
 });
 
-// Server başlat
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`IPTV Proxy Server çalışıyor: http://localhost:${PORT}`);
+  console.log(`Proxy server running on port ${PORT}`);
 });
